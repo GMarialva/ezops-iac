@@ -13,97 +13,11 @@ provider "aws" {
   profile = "EZOPS"
 }
 
-# resource "aws_s3_bucket" "terraform_state" {
-#   bucket = "test-gmarialva-terraform-state-bucket"
-
-#   versioning {
-#     enabled = true
-#   }
-
-#   server_side_encryption_configuration {
-#     rule {
-#       apply_server_side_encryption_by_default {
-#         sse_algorithm = "AES256"
-#       }
-#     }
-#   }
-
-#   lifecycle {
-#     prevent_destroy = true
-#   }
-# }
-
-# resource "aws_dynamodb_table" "terraform_state_lock" {
-#   name         = "test-gmarialva-terraform-state-lock"
-#   billing_mode = "PAY_PER_REQUEST"
-#   hash_key     = "LockID"
-
-#   attribute {
-#     name = "LockID"
-#     type = "S"
-#   }
-# }
-
-# resource "aws_vpc" "main" {
-#   cidr_block = "10.0.0.0/16"
-#   tags = {
-#     Name = "test-gmarialva-vpc"
-#   }
-# }
-
-# resource "aws_subnet" "private" {
-#   vpc_id            = aws_vpc.main.id
-#   cidr_block        = "10.0.1.0/24"
-#   map_public_ip_on_launch = false
-#   tags = {
-#     Name = "test-gmarialva-private-subnet"
-#   }
-# }
-
-# resource "aws_internet_gateway" "gw" {
-#   vpc_id = aws_vpc.main.id
-#   tags = {
-#     Name = "test-gmarialva-gateway"
-#   }
-# }
-
-# resource "aws_route_table" "private" {
-#   vpc_id = aws_vpc.main.id
-#   tags = {
-#     Name = "test-gmarialva-private-route-table"
-#   }
-# }
-
-# resource "aws_route" "private_route" {
-#   route_table_id         = aws_route_table.private.id
-#   destination_cidr_block = "0.0.0.0/0"
-#   gateway_id             = aws_internet_gateway.gw.id
-# }
-
-# resource "aws_route_table_association" "a" {
-#   subnet_id      = aws_subnet.private.id
-#   route_table_id = aws_route_table.private.id
-# }
-
 resource "aws_security_group" "instance" {
   vpc_id = "vpc-02ca8c4ce6926db7e" #aws_vpc.main.id
   tags = {
     Name = "test-gmarialva-instance-sg"
   }
-
-  # ingress {
-  #   from_port   = 22
-  #   to_port     = 22
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  # }
-
-  # ingress {
-  #   from_port   = 80
-  #   to_port     = 80
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  # }
 
   egress {
     from_port   = 0
@@ -144,60 +58,6 @@ resource "aws_instance" "app" {
     Name = "test-gmarialva-app-instance"
   }
 }
-
-# resource "aws_lb" "app_lb" {
-#   name               = "test-gmarialva-app-lb"
-#   internal           = false
-#   load_balancer_type = "application"
-#   security_groups    = [aws_security_group.instance.id]
-#   subnets            = [aws_subnet.private.id]
-
-#   tags = {
-#     Name = "test-gmarialva-app-lb"
-#   }
-# }
-
-# resource "aws_lb_target_group" "app_tg" {
-#   name     = "test-gmarialva-app-tg"
-#   port     = 80
-#   protocol = "HTTP"
-#   vpc_id   = aws_vpc.main.id
-
-#   health_check {
-#     path                = "/"
-#     protocol            = "HTTP"
-#     matcher             = "200"
-#     interval            = 30
-#     timeout             = 5
-#     healthy_threshold   = 5
-#     unhealthy_threshold = 2
-#   }
-
-#   tags = {
-#     Name = "test-gmarialva-app-tg"
-#   }
-# }
-
-# resource "aws_lb_listener" "app_listener" {
-#   load_balancer_arn = aws_lb.app_lb.arn
-#   port              = "80"
-#   protocol          = "HTTP"
-
-#   default_action {
-#     type             = "forward"
-#     target_group_arn = aws_lb_target_group.app_tg.arn
-#   }
-
-#   tags = {
-#     Name = "test-gmarialva-app-listener"
-#   }
-# }
-
-# resource "aws_lb_target_group_attachment" "app_attachment" {
-#   target_group_arn = aws_lb_target_group.app_tg.arn
-#   target_id        = aws_instance.app.id
-#   port             = 80
-# }
 
 resource "aws_s3_bucket" "static_website" {
   bucket = "test-gmarialva-website-bucket"
