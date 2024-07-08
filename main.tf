@@ -13,10 +13,21 @@ provider "aws" {
   profile = "EZOPS"
 }
 
-resource "aws_security_group" "instance" {
-  vpc_id = "vpc-02ca8c4ce6926db7e" #aws_vpc.main.id
-  tags = {
-    Name = "test-gmarialva-instance-sg"
+resource "aws_security_group" "k3s" {
+  vpc_id = "vpc-02ca8c4ce6926db7e"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 6443
+    to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -25,41 +36,57 @@ resource "aws_security_group" "instance" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "test-gmarialva-k3s-sg"
+  }
 }
 
-resource "aws_instance" "app" {
+resource "aws_instance" "master" {
   ami           = "ami-04a81a99f5ec58529"
   instance_type = "t3.small"
-  subnet_id     = "subnet-042ba6c4b445abf04" #aws_subnet.private.id
+  subnet_id     = "subnet-042ba6c4b445abf04"
   key_name      = var.key_name
+
+  security_groups = [aws_security_group.k3s.id]
+
+  user_data = <<-EOF
+              #!/bin/bash
+              curl -sfL https://get.k3s.io | sh -s - server --cluster-init
+              export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+              EOF
 
   root_block_device {
     volume_type = "gp3"
     volume_size = 30
   }
 
-  security_groups = [aws_security_group.instance.id]
+  tags = {
+    Name = "test-gmarialva-k3s-master"
+  }
+}
+
+resource "aws_instance" "worker" {
+  ami           = "ami-04a81a99f5ec58529"
+  instance_type = "t3.small"
+  subnet_id     = "subnet-042ba6c4b445abf04"
+  key_name      = var.key_name
+
+  security_groups = [aws_security_group.k3s.id]
 
   user_data = <<-EOF
               #!/bin/bash
-              apt-get update -y
-              apt-get upgrade -y
-              apt-get install -y apt-transport-https ca-certificates curl software-properties-common
-              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-              add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-              apt-get update -y
-              apt-get install -y docker-ce docker-ce-cli containerd.io
-              usermod -aG docker ubuntu
-              newgrp docker
-              curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-              install minikube-linux-amd64 /usr/local/bin/minikube
-              minikube start
-              curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-              install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+              MASTER_IP=$(aws ec2 describe-instances --instance-ids ${aws_instance.master.id} --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
+              curl -sfL https://get.k3s.io | K3S_URL=https://$MASTER_IP:6443 K3S_TOKEN=$(cat /var/lib/rancher/k3s/server/node-token) sh -
               EOF
 
+  root_block_device {
+    volume_type = "gp3"
+    volume_size = 30
+  }
+
   tags = {
-    Name = "test-gmarialva-app-instance"
+    Name = "test-gmarialva-k3s-worker"
   }
 }
 
